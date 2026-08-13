@@ -422,6 +422,7 @@
   <div class="wnetrze-head">
     <button class="btn mini" onclick="wrocDoPolki()">← Tomiki</button>
     <h2 id="wnetrze-tytul"></h2>
+    <button class="btn mini" onclick="pobierzTomik()">⬇ Pobierz tomik</button>
     <button class="btn mini" onclick="nowyWiersz()">➕ Nowy wiersz</button>
   </div>
   <div class="tomik-uklad">
@@ -682,6 +683,34 @@ function usunWiersz(){
 }
 
 /* ============ EKSPORT / IMPORT ============ */
+/* pobiera JEDEN otwarty tomik jako osobny plik .json (do wczytania w formularzu) */
+function pobierzTomik(){
+  if(aktTomik === null) return;
+  zapiszBiezacyWiersz(true);
+  const t = dane.tomiki[aktTomik];
+  const tomik = {
+    tytul: t.tytul,
+    styl: t.styl || 1,
+    wiersze: (t.wiersze||[]).map(w => ({ tytul: w.tytul, tresc: w.tresc }))
+  };
+  // nazwa pliku z tytułu tomiku (bezpieczna) albo "tomik"
+  const bezpieczna = (t.tytul || 'tomik')
+    .toLowerCase()
+    .replace(/[ąàáâ]/g,'a').replace(/[ćč]/g,'c').replace(/[ęèé]/g,'e')
+    .replace(/ł/g,'l').replace(/[ńñ]/g,'n').replace(/[óòô]/g,'o')
+    .replace(/[śš]/g,'s').replace(/[żź]/g,'z').replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'') || 'tomik';
+  const blob = new Blob([JSON.stringify(tomik, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tomik-' + bezpieczna + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  toast('Pobrano tomik „' + t.tytul + '"');
+}
+
 function eksportuj(){
   zapiszBiezacyWiersz(true);
   // format zgodny z dane.json — tomiki trafiają pod pierwszego (pustego) artystę,
