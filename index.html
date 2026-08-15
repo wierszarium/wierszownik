@@ -423,6 +423,8 @@
     <button class="btn mini" onclick="wrocDoPolki()">← Tomiki</button>
     <h2 id="wnetrze-tytul"></h2>
     <button class="btn mini" onclick="pobierzTomik()">⬇ Pobierz tomik</button>
+    <button class="btn mini" onclick="document.getElementById('wczytaj-tomik-input').click()">📥 Wczytaj tomik</button>
+    <input type="file" id="wczytaj-tomik-input" accept=".json" style="display:none" onchange="wczytajTomikDoOtwartego(this)">
     <button class="btn mini" onclick="nowyWiersz()">➕ Nowy wiersz</button>
   </div>
   <div class="tomik-uklad">
@@ -711,6 +713,44 @@ function pobierzTomik(){
   toast('Pobrano tomik „' + t.tytul + '"');
 }
 
+/* wczytuje plik tomiku i DOKŁADA jego wiersze do aktualnie otwartego tomiku */
+function wczytajTomikDoOtwartego(input){
+  if(aktTomik === null){ input.value=''; return; }
+  const plik = input.files[0];
+  if(!plik){ return; }
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const obj = JSON.parse(r.result);
+      // wyciągnij wiersze — akceptuj pojedynczy tomik {tytul,wiersze}, {tomiki:[...]}, pełny dane.json
+      let wiersze = null;
+      if(obj && Array.isArray(obj.wiersze)){
+        wiersze = obj.wiersze;                       // pojedynczy tomik
+      } else if(obj && Array.isArray(obj.tomiki) && obj.tomiki.length){
+        wiersze = obj.tomiki[0].wiersze || [];       // pierwszy tomik z listy
+      } else if(obj && Array.isArray(obj.artysci) && obj.artysci.length){
+        const art = obj.artysci.find(a => Array.isArray(a.tomiki) && a.tomiki.length);
+        if(art) wiersze = art.tomiki[0].wiersze || [];
+      }
+      if(!wiersze){
+        toast('Nie znalazłem wierszy w tym pliku');
+        input.value=''; return;
+      }
+      zapiszBiezacyWiersz(true);
+      // dołóż wiersze do otwartego tomiku
+      const doDodania = wiersze.map(w => ({ tytul: w.tytul || '', tresc: w.tresc || w.tekst || '' }));
+      dane.tomiki[aktTomik].wiersze = (dane.tomiki[aktTomik].wiersze||[]).concat(doDodania);
+      zapiszLokalnie();
+      rysujSpis();
+      toast('Dodano ' + doDodania.length + ' ' + (doDodania.length===1?'wiersz':'wierszy') + ' do tomiku');
+    }catch(err){
+      toast('To nie jest poprawny plik JSON');
+    }
+    input.value='';
+  };
+  r.readAsText(plik);
+}
+
 function eksportuj(){
   zapiszBiezacyWiersz(true);
   // format zgodny z dane.json — tomiki trafiają pod pierwszego (pustego) artystę,
@@ -784,13 +824,11 @@ function wyciagnijTomiki(obj){
   if(Array.isArray(obj.tomiki)) return normalizujTomiki(obj.tomiki);
   // 2) pełny dane.json: { artysci: [ { tomiki: [...] } ] }
   if(Array.isArray(obj.artysci) && obj.artysci.length){
-    // zbierz tomiki ze wszystkich artystów
     let wszystkie = [];
     obj.artysci.forEach(a => { if(Array.isArray(a.tomiki)) wszystkie = wszystkie.concat(a.tomiki); });
     if(wszystkie.length) return normalizujTomiki(wszystkie);
     return [];
   }
-  // 3) sam artysta: { tomiki: [...] } już złapane wyżej
   return null;
 }
 
